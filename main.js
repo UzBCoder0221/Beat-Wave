@@ -49,6 +49,8 @@ let timeSinceLastMainBeat = 0;
 let pendingSecondaryBeatAt = null;
 let centerPulse = config.centerBaseOpacity;
 let waveBursts = [];
+let soundEnabled = false;
+let heartbeatSound = null;
 
 function randRange(min, max) {
   return min + Math.random() * (max - min);
@@ -56,6 +58,43 @@ function randRange(min, max) {
 
 function pickColor() {
   return config.colorPalette[Math.floor(Math.random() * config.colorPalette.length)];
+}
+
+function setupSound() {
+  const toggle = document.getElementById("sound-toggle");
+  heartbeatSound = document.getElementById("heartbeat-sound");
+
+  if (!toggle || !heartbeatSound) return;
+
+  toggle.addEventListener("click", async () => {
+    soundEnabled = !soundEnabled;
+    toggle.textContent = soundEnabled ? "Disable heartbeat sound" : "Enable heartbeat sound";
+
+    if (soundEnabled) {
+      try {
+        heartbeatSound.currentTime = 0;
+        await heartbeatSound.play();
+        // Immediately pause to satisfy autoplay policies and keep it primed
+        heartbeatSound.pause();
+      } catch (e) {
+        soundEnabled = false;
+        toggle.textContent = "Enable heartbeat sound";
+      }
+    }
+  });
+}
+
+function playHeartbeat(strength) {
+  if (!soundEnabled || !heartbeatSound) return;
+
+  try {
+    heartbeatSound.currentTime = 0;
+    heartbeatSound.volume = Math.min(1, 0.35 + 0.25 * strength);
+    heartbeatSound.playbackRate = 0.9 + 0.15 * strength;
+    heartbeatSound.play();
+  } catch (e) {
+    // ignore play errors
+  }
 }
 
 function createParticle(randomPosition = true) {
@@ -228,6 +267,7 @@ function loop(now) {
     timeSinceLastMainBeat -= config.beatInterval;
     centerPulse = config.centerPeakOpacity;
     waveBursts.push({ time: now, strength: 1 });
+    playHeartbeat(1);
     pendingSecondaryBeatAt = now + config.doubleBeatOffset;
   }
 
@@ -235,6 +275,7 @@ function loop(now) {
   if (pendingSecondaryBeatAt !== null && now >= pendingSecondaryBeatAt) {
     centerPulse = Math.max(centerPulse, config.centerPeakOpacity * 0.95);
     waveBursts.push({ time: now, strength: 0.7 });
+    playHeartbeat(0.8);
     pendingSecondaryBeatAt = null;
   }
 
@@ -250,6 +291,7 @@ function loop(now) {
 }
 
 initParticles();
+setupSound();
 
 requestAnimationFrame((t) => {
   lastFrameTime = t;
